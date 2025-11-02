@@ -22,7 +22,7 @@ export const BottomNav = () => {
             onClick={() => navigate(item.path)}
             className={`flex flex-col items-center gap-1 transition-colors ${
               item.isPrimary
-                ? "bg-primary text-white p-3 rounded-full -mt-6 shadow-lg hover:bg-primary/90"
+                ? "bg-primary text-primary-foreground p-3 rounded-full -mt-6 shadow-lg hover:bg-primary/90"
                 : location.pathname === item.path
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"

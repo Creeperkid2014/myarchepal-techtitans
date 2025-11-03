@@ -6,7 +6,7 @@ import { SiteConditions } from "@/components/SiteConditions";
 import { BottomNav } from "@/components/BottomNav";
 
 const Index = () => {
-  return (
+    return (
     <div className="min-h-screen bg-background">
       <div className="max-w-md mx-auto bg-background min-h-screen">
         <AppHeader />

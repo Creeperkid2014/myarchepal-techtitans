@@ -10,7 +10,7 @@
  * 
  * Routes: /edit-profile
  * Requires: Authentication (redirects to sign-in if not authenticated)
- */
+ 1*/
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";

@@ -124,7 +124,7 @@ const Account = () => {
               <>
                 <div className="flex items-center gap-4 mb-4">
                   <Avatar className="w-20 h-20">
-                    <AvatarImage src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
+                    <AvatarImage src={archaeologistProfile?.photoURL || user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">

@@ -7,12 +7,14 @@ import {
   getDocs,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 
 export interface Archaeologist {
   uid: string;
   email: string;
   displayName?: string;
+  photoURL?: string;
   institution?: string;
   specialization?: string;
   credentials?: string;
@@ -161,6 +163,75 @@ export class ArchaeologistService {
     } catch (error) {
       console.error('❌ Error fetching archaeologists:', error);
       return [];
+    }
+  }
+
+  // Upload profile picture to Firebase Storage
+  static async uploadProfilePicture(uid: string, file: File): Promise<string> {
+    try {
+      console.log('🔄 Starting profile picture upload...');
+      console.log('Storage instance:', storage ? '✅ Available' : '❌ Not available');
+      console.log('File info:', { name: file.name, size: file.size, type: file.type });
+
+      if (!storage) {
+        console.error('❌ Firebase Storage is not initialized');
+        throw new Error('Firebase Storage is not properly initialized');
+      }
+
+      // Create a unique filename
+      const timestamp = Date.now();
+      const filename = `profile-pictures/${uid}/${timestamp}_${file.name}`;
+      console.log('📁 Upload path:', filename);
+
+      const storageRef = ref(storage, filename);
+      console.log('🎯 Storage ref created:', storageRef.toString());
+
+      // Upload the file
+      console.log('⬆️ Uploading file...');
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('✅ Upload completed:', snapshot.metadata);
+
+      // Get the download URL
+      console.log('🔗 Getting download URL...');
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('✅ Download URL obtained:', downloadURL);
+
+      return downloadURL;
+    } catch (error: any) {
+      console.error('❌ Error uploading profile picture:');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
+
+      // Provide more specific error messages
+      if (error.code === 'storage/unauthorized') {
+        throw new Error('Upload unauthorized. Please check Firebase Storage security rules.');
+      } else if (error.code === 'storage/quota-exceeded') {
+        throw new Error('Storage quota exceeded. Please upgrade your Firebase plan.');
+      } else if (error.code === 'storage/unauthenticated') {
+        throw new Error('You must be signed in to upload images.');
+      } else {
+        throw new Error(`Upload failed: ${error.message || 'Unknown error'}`);
+      }
+    }
+  }
+
+  // Delete profile picture from Firebase Storage
+  static async deleteProfilePicture(photoURL: string): Promise<void> {
+    try {
+      if (!storage) {
+        throw new Error('Firebase Storage is not properly initialized');
+      }
+
+      // Create a reference from the URL
+      const imageRef = ref(storage, photoURL);
+
+      // Delete the file
+      await deleteObject(imageRef);
+      console.log('✅ Profile picture deleted');
+    } catch (error) {
+      console.error('❌ Error deleting profile picture:', error);
+      // Don't throw error as image might already be deleted
     }
   }
 }

@@ -401,11 +401,13 @@ const SiteDetails = () => {
           </Card>
         </div>
 
-        {/* Site Conditions - Weather based on site coordinates or default NC coordinates */}
-        <SiteConditions
-          latitude={site.location?.latitude || 35.7596}
-          longitude={site.location?.longitude || -79.0193}
-        />
+        {/* Site Conditions - Weather based on site coordinates */}
+        {site.location?.latitude && site.location?.longitude && (
+          <SiteConditions
+            latitude={site.location.latitude}
+            longitude={site.location.longitude}
+          />
+        )}
 
         <BottomNav />
       </div>

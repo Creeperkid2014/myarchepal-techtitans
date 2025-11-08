@@ -1,29 +1,21 @@
-// Archaeologist Verification Codes
-// In a real application, these would be stored securely in a database
-// and managed by administrators
-
-export const ARCHAEOLOGIST_VERIFICATION_CODES = [
-  'ARCH2024',
-  'EXCAVATE2024',
-  'HERITAGE2024',
-  'ANCIENT2024',
-  'DISCOVERY2024',
-  'SITE2024',
-  'ARTIFACT2024',
-  'RESEARCH2024',
-  'FIELDWORK2024',
-  'MUSEUM2024'
-];
+// Archaeologist Verification Code
+// The valid verification code is stored in environment variable for security
 
 export class VerificationService {
-  // Verify if the provided code is valid
-  static isValidVerificationCode(code: string): boolean {
-    return ARCHAEOLOGIST_VERIFICATION_CODES.includes(code.toUpperCase().trim());
+  // Get the valid verification code from environment variable
+  private static getValidCode(): string {
+    return import.meta.env.VITE_ARCHAEOLOGIST_VERIFICATION_CODE || '';
   }
 
-  // Get hint about verification codes (for demo purposes)
+  // Verify if the provided code is valid
+  static isValidVerificationCode(code: string): boolean {
+    const validCode = this.getValidCode();
+    return validCode && code.trim() === validCode;
+  }
+
+  // Get hint about verification codes
   static getVerificationHint(): string {
-    return `Valid codes include: ${ARCHAEOLOGIST_VERIFICATION_CODES.slice(0, 3).join(', ')}, etc.`;
+    return 'Please enter the archaeologist verification code provided to you.';
   }
 
   // Check if email domain is from a recognized institution (optional additional verification)

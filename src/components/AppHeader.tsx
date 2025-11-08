@@ -103,9 +103,12 @@ export const AppHeader = () => {
       
       {isAuthenticated && user ? (
         <div className="flex items-center gap-3">
-          <Avatar className="w-12 h-12">
-            <AvatarImage src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
-            <AvatarFallback>{initials}</AvatarFallback>
+          <Avatar className="w-12 h-12 bg-muted">
+            {(archaeologistProfile?.photoURL || user.photoURL) ? (
+              <AvatarImage src={archaeologistProfile?.photoURL || user.photoURL || undefined} />
+            ) : (
+              <AvatarFallback className="bg-muted border border-border"></AvatarFallback>
+            )}
           </Avatar>
           <div>
             <h2 className="text-lg font-semibold text-foreground">

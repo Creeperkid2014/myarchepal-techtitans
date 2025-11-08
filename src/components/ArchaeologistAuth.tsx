@@ -227,9 +227,7 @@ export const ArchaeologistAuth: React.FC<ArchaeologistAuthProps> = ({
                 <span className="text-sm font-medium text-blue-900">Verification Required</span>
               </div>
               <p className="text-xs text-blue-700">
-                Only verified archaeologists can create accounts.
-                {' '}
-                <span className="font-medium">Demo codes: ARCH2024, EXCAVATE2024, HERITAGE2024</span>
+                Only verified archaeologists can create accounts. Please enter your verification code to continue.
               </p>
             </div>
           )}

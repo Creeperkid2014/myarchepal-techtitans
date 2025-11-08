@@ -6,7 +6,6 @@ export const useSites = () => {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -17,33 +16,9 @@ export const useSites = () => {
     try {
       setLoading(true);
 
-      // First, always try to fetch existing sites (works for both authenticated and unauthenticated users)
+      // Fetch existing sites
       const data = await SitesService.getAllSites();
-
-      // Only initialize default sites if user is authenticated and sites are empty
-      if (isAuthenticated && !initialized && data.length === 0) {
-        try {
-          console.log('🏛️ User is authenticated, initializing default NC archaeological sites...');
-          await SitesService.initializeDefaultNCSites();
-          setInitialized(true);
-          // Fetch sites again after initialization
-          const updatedData = await SitesService.getAllSites();
-          setSites(updatedData);
-        } catch (initError: any) {
-          console.error('Error initializing default sites:', initError);
-          // Don't fail the entire operation if initialization fails
-          // Still show existing sites if any
-          setSites(data);
-        }
-      } else {
-        setSites(data);
-        if (!isAuthenticated) {
-          console.log('👤 User not authenticated - showing existing sites only');
-        } else if (data.length > 0) {
-          console.log('✅ Sites already exist - skipping initialization');
-        }
-      }
-
+      setSites(data);
       setError(null);
     } catch (err: any) {
       setError('Failed to fetch sites');
@@ -98,25 +73,6 @@ export const useSites = () => {
     }
   };
 
-  // Manual function to initialize default sites (for authenticated users)
-  const initializeDefaultSites = async () => {
-    if (!isAuthenticated) {
-      throw new Error('You must be signed in to initialize default sites');
-    }
-
-    try {
-      setLoading(true);
-      await SitesService.initializeDefaultNCSites();
-      setInitialized(true);
-      await fetchSites(); // Refresh the sites list
-    } catch (err) {
-      setError('Failed to initialize default sites');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return {
     sites,
     loading,
@@ -124,7 +80,6 @@ export const useSites = () => {
     fetchSites,
     createSite,
     updateSite,
-    deleteSite,
-    initializeDefaultSites
+    deleteSite
   };
 };

@@ -3,13 +3,71 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Loader2 } from "lucide-react";
 import { useSites } from "@/hooks/use-sites";
+import { useAuth } from "@/hooks/use-auth";
+import { useArchaeologist } from "@/hooks/use-archaeologist";
+import { ArchaeologistService } from "@/services/archaeologists";
 import { Timestamp } from "firebase/firestore";
+import { useState, useEffect } from "react";
 
 export const ActiveProject = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isArchaeologist } = useArchaeologist();
   const { sites, loading } = useSites();
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [fetchingActiveProject, setFetchingActiveProject] = useState(false);
 
-  const activeSites = sites.filter(site => site.status === 'active').slice(0, 2);
+  // Fetch active project ID for archaeologist
+  useEffect(() => {
+    const fetchActiveProject = async () => {
+      if (user && isArchaeologist) {
+        try {
+          setFetchingActiveProject(true);
+          const activeId = await ArchaeologistService.getActiveProjectId(user.uid);
+          setActiveProjectId(activeId);
+        } catch (error) {
+          console.error("Error fetching active project:", error);
+        } finally {
+          setFetchingActiveProject(false);
+        }
+      }
+    };
+
+    fetchActiveProject();
+  }, [user, isArchaeologist]);
+
+  // For archaeologists: show their active project + 2 latest sites
+  // For non-archaeologists: show 2 latest sites
+  const getDisplaySites = () => {
+    if (isArchaeologist && activeProjectId) {
+      // Find the active project
+      const activeProject = sites.find(site => site.id === activeProjectId);
+
+      // Get latest sites sorted by creation date, excluding the active project
+      const latestSites = sites
+        .filter(site => site.id !== activeProjectId)
+        .sort((a, b) => {
+          const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toDate() : a.createdAt;
+          const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toDate() : b.createdAt;
+          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        })
+        .slice(0, 2);
+
+      // Return active project first, then latest sites
+      return activeProject ? [activeProject, ...latestSites] : latestSites;
+    } else {
+      // Show 2 most recent sites
+      return sites
+        .sort((a, b) => {
+          const dateA = a.createdAt instanceof Timestamp ? a.createdAt.toDate() : a.createdAt;
+          const dateB = b.createdAt instanceof Timestamp ? b.createdAt.toDate() : b.createdAt;
+          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+        })
+        .slice(0, 2);
+    }
+  };
+
+  const displaySites = getDisplaySites();
 
   const formatDate = (date: Date | Timestamp | undefined) => {
     if (!date) return "Unknown date";
@@ -28,7 +86,7 @@ export const ActiveProject = () => {
     return parts.join(", ") || "Location not specified";
   };
 
-  if (loading) {
+  if (loading || fetchingActiveProject) {
     return (
       <div className="px-4 py-6 bg-muted/30">
         <div className="flex items-center justify-center py-8">
@@ -41,7 +99,9 @@ export const ActiveProject = () => {
   return (
     <div className="px-4 py-6 bg-muted/30">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold text-foreground">Active Sites</h3>
+        <h3 className="text-base font-semibold text-foreground">
+          {isArchaeologist && activeProjectId ? "Active Project & Recent Sites" : "Recent Sites"}
+        </h3>
         <button
           onClick={() => navigate("/site-lists")}
           className="text-sm text-primary font-medium"
@@ -50,13 +110,15 @@ export const ActiveProject = () => {
         </button>
       </div>
 
-      {activeSites.length === 0 ? (
+      {displaySites.length === 0 ? (
         <Card className="p-6 border-border text-center">
-          <p className="text-muted-foreground text-sm">No active sites available</p>
+          <p className="text-muted-foreground text-sm">No sites available</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {activeSites.map((site) => (
+          {displaySites.map((site) => {
+            const isActiveProject = isArchaeologist && site.id === activeProjectId;
+            return (
             <Card
               key={site.id}
               className="p-4 border-border hover:shadow-md transition-all cursor-pointer"
@@ -86,9 +148,11 @@ export const ActiveProject = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h4 className="font-semibold text-foreground line-clamp-1">{site.name}</h4>
-                    <Badge variant="outline" className="bg-success/10 text-success border-success/20 flex-shrink-0">
-                      Active
-                    </Badge>
+                    {isActiveProject && (
+                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 flex-shrink-0">
+                        Active Project
+                      </Badge>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -103,7 +167,8 @@ export const ActiveProject = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Bell, User, LogIn } from "lucide-react";
+import { Bell, User, LogIn, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export const AppHeader = () => {
         </div>
         <div className="flex items-center gap-3">
           {isAuthenticated && (
-            <button 
+            <button
               className="p-2 hover:bg-muted rounded-full transition-colors"
               onClick={() => navigate("/account")}
               aria-label="Notifications"
@@ -80,7 +80,7 @@ export const AppHeader = () => {
             </button>
           )}
           {isAuthenticated ? (
-            <button 
+            <button
               className="p-2 hover:bg-muted rounded-full transition-colors"
               onClick={() => navigate("/account")}
               aria-label="Account"
@@ -88,15 +88,26 @@ export const AppHeader = () => {
               <User className="w-5 h-5 text-muted-foreground" />
             </button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/authentication/sign-in")}
-              className="gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              Sign In
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/contact")}
+                className="gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                Contact
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/authentication/sign-in")}
+                className="gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </Button>
+            </>
           )}
         </div>
       </div>

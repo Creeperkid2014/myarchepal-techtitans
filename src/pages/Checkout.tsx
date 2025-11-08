@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { ArtifactsService, Artifact } from "@/services/artifacts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +20,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [purchaseComplete, setPurchaseComplete] = useState(false);
+  const [sameAsShipping, setSameAsShipping] = useState(false);
 
   const [purchaseData, setPurchaseData] = useState({
     quantity: 1,
@@ -30,7 +32,12 @@ const Checkout = () => {
     city: "",
     state: "",
     zipCode: "",
-    country: ""
+    country: "",
+    billingAddress: "",
+    billingCity: "",
+    billingState: "",
+    billingZipCode: "",
+    billingCountry: ""
   });
 
   useEffect(() => {
@@ -86,6 +93,20 @@ const Checkout = () => {
     loadArtifact();
   }, [id, navigate, toast]);
 
+  // Sync billing address with shipping address when checkbox is checked
+  useEffect(() => {
+    if (sameAsShipping) {
+      setPurchaseData(prev => ({
+        ...prev,
+        billingAddress: prev.address,
+        billingCity: prev.city,
+        billingState: prev.state,
+        billingZipCode: prev.zipCode,
+        billingCountry: prev.country
+      }));
+    }
+  }, [sameAsShipping, purchaseData.address, purchaseData.city, purchaseData.state, purchaseData.zipCode, purchaseData.country]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPurchaseData(prev => ({
@@ -114,10 +135,21 @@ const Checkout = () => {
     if (!purchaseData.address || !purchaseData.city || !purchaseData.state || !purchaseData.zipCode || !purchaseData.country) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all address information",
+        description: "Please fill in all shipping address information",
         variant: "destructive"
       });
       return false;
+    }
+
+    if (!sameAsShipping) {
+      if (!purchaseData.billingAddress || !purchaseData.billingCity || !purchaseData.billingState || !purchaseData.billingZipCode || !purchaseData.billingCountry) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all billing address information",
+          variant: "destructive"
+        });
+        return false;
+      }
     }
 
     return true;
@@ -427,6 +459,97 @@ const Checkout = () => {
               </CardContent>
             </Card>
 
+            {/* Billing Address */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Billing Address
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="sameAsShipping"
+                    checked={sameAsShipping}
+                    onCheckedChange={(checked) => setSameAsShipping(checked === true)}
+                  />
+                  <label
+                    htmlFor="sameAsShipping"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Billing address is the same as shipping address
+                  </label>
+                </div>
+
+                {!sameAsShipping && (
+                  <>
+                    <div>
+                      <Label htmlFor="billingAddress">Street Address</Label>
+                      <Input
+                        id="billingAddress"
+                        name="billingAddress"
+                        placeholder="123 Main Street"
+                        value={purchaseData.billingAddress}
+                        onChange={handleInputChange}
+                        required={!sameAsShipping}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="billingCity">City</Label>
+                        <Input
+                          id="billingCity"
+                          name="billingCity"
+                          placeholder="New York"
+                          value={purchaseData.billingCity}
+                          onChange={handleInputChange}
+                          required={!sameAsShipping}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="billingState">State</Label>
+                        <Input
+                          id="billingState"
+                          name="billingState"
+                          placeholder="NY"
+                          value={purchaseData.billingState}
+                          onChange={handleInputChange}
+                          required={!sameAsShipping}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="billingZipCode">ZIP Code</Label>
+                        <Input
+                          id="billingZipCode"
+                          name="billingZipCode"
+                          placeholder="10001"
+                          value={purchaseData.billingZipCode}
+                          onChange={handleInputChange}
+                          required={!sameAsShipping}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="billingCountry">Country</Label>
+                        <Input
+                          id="billingCountry"
+                          name="billingCountry"
+                          placeholder="USA"
+                          value={purchaseData.billingCountry}
+                          onChange={handleInputChange}
+                          required={!sameAsShipping}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Submit Button */}
             <div className="flex gap-3 pt-2">
               <Button
@@ -451,7 +574,7 @@ const Checkout = () => {
                 ) : (
                   <>
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    Complete Purchase
+                    Buy Artifact
                   </>
                 )}
               </Button>

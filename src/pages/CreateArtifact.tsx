@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2, DollarSign } from "lucide-react";
+import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,14 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 
 const types = ["Coin", "Ceramic", "Weapon", "Glass", "Personal Ornament", "Sculpture", "Other"];
 const periods = ["Imperial Roman", "Roman", "Late Roman", "Byzantine", "Medieval", "Other"];
 const materials = ["Gold", "Silver", "Bronze", "Iron", "Terracotta", "Ceramic", "Glass", "Marble", "Stone", "Bone", "Wood", "Other"];
 const conditions = ["Excellent", "Good", "Fair", "Fragment", "Poor"];
 const significance = ["Very High", "High", "Medium", "Low"];
-const currencies = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"];
 
 const CreateArtifact = () => {
   const navigate = useNavigate();
@@ -59,13 +57,9 @@ const CreateArtifact = () => {
     tags: "",
     finder: "",
     siteId: "",
-    forSale: false,
-    salePrice: "",
-    currency: "USD",
-    quantity: "1",
   });
 
-  // Fetch sites created by the current user
+  // Fetch all sites (allow archaeologists to add artifacts to any site)
   useEffect(() => {
     const fetchUserSites = async () => {
       if (!user) return;
@@ -73,13 +67,12 @@ const CreateArtifact = () => {
       try {
         setSitesLoading(true);
         const allSites = await SitesService.getAllSites();
-        const filteredSites = allSites.filter(site => site.createdBy === user.uid);
-        setUserSites(filteredSites);
+        setUserSites(allSites);
       } catch (error) {
-        console.error('Error fetching user sites:', error);
+        console.error('Error fetching sites:', error);
         toast({
           title: "Error",
-          description: "Failed to load your sites",
+          description: "Failed to load sites",
           variant: "destructive"
         });
       } finally {
@@ -208,10 +201,6 @@ const CreateArtifact = () => {
         siteId: formData.siteId,
         siteName: selectedSite?.name || "",
         createdBy: user.uid,
-        forSale: formData.forSale,
-        salePrice: formData.forSale && formData.salePrice ? parseFloat(formData.salePrice) : undefined,
-        currency: formData.forSale && formData.salePrice ? formData.currency : undefined,
-        quantity: formData.forSale && formData.quantity ? parseInt(formData.quantity) : undefined,
       };
 
       const artifactId = await ArtifactsService.createArtifact(artifactData);
@@ -233,7 +222,7 @@ const CreateArtifact = () => {
 
       toast({
         title: "Success!",
-        description: "Artifact has been successfully cataloged",
+        description: "Artifact has been successfully created",
       });
 
       // Navigate to artifacts page after successful creation
@@ -266,8 +255,8 @@ const CreateArtifact = () => {
             <Card>
               <div className="p-6 text-center">
                 <p className="text-muted-foreground mb-4">
-                  {!user ? 'Please sign in as an archaeologist to catalog artifacts.' :
-                   !isArchaeologist ? 'Only verified archaeologists can catalog artifacts.' :
+                  {!user ? 'Please sign in as an archaeologist to create artifacts.' :
+                   !isArchaeologist ? 'Only verified archaeologists can create artifacts.' :
                    'Loading...'}
                 </p>
                 {!user && (
@@ -289,13 +278,13 @@ const CreateArtifact = () => {
               <div className="p-6 text-center">
                 <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground mb-4">
-                  You need to create a site first before cataloging artifacts.
+                  No sites are available. A site must exist before creating artifacts.
                 </p>
                 <Button
                   onClick={() => navigate('/new-site')}
                   variant="outline"
                 >
-                  Create Your First Site
+                  Create a Site
                 </Button>
               </div>
             </Card>
@@ -414,7 +403,7 @@ const CreateArtifact = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Only sites you created are shown. Artifacts must be associated with a site.
+                All available sites are shown. Artifacts must be associated with a site.
               </p>
             </div>
 
@@ -621,82 +610,6 @@ const CreateArtifact = () => {
               <p className="text-xs text-muted-foreground">Separate multiple tags with commas</p>
             </div>
 
-            {/* Sale Section */}
-            <Card className="border-border bg-muted/20">
-              <CardContent className="pt-6 space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="forSale"
-                    checked={formData.forSale}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, forSale: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="forSale" className="text-foreground font-medium cursor-pointer">
-                    Mark artifact for sale
-                  </Label>
-                </div>
-
-                {formData.forSale && (
-                  <div className="space-y-4 pl-6 border-l-2 border-primary/30">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="salePrice" className="text-foreground">Price per Item *</Label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="salePrice"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            value={formData.salePrice}
-                            onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}
-                            required={formData.forSale}
-                            className="pl-10 border-border"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="currency" className="text-foreground">Currency</Label>
-                        <Select
-                          value={formData.currency}
-                          onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                        >
-                          <SelectTrigger className="border-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {currencies.map((curr) => (
-                              <SelectItem key={curr} value={curr}>
-                                {curr}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="quantity" className="text-foreground">Quantity Available *</Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        min="1"
-                        placeholder="1"
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                        required={formData.forSale}
-                        className="border-border"
-                      />
-                      <p className="text-xs text-muted-foreground">Number of items available for sale</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             <div className="flex gap-3 pt-2">
               <Button
                 type="button"
@@ -711,10 +624,10 @@ const CreateArtifact = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cataloging...
+                    Creating...
                   </>
                 ) : (
-                  "Catalog Artifact"
+                  "Create Artifact"
                 )}
               </Button>
             </div>

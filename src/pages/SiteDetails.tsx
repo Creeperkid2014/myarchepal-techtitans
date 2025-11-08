@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { SiteConditions } from "@/components/SiteConditions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SitesService, Site } from "@/services/sites";
 import { ArtifactsService, Artifact } from "@/services/artifacts";
@@ -68,15 +67,6 @@ const SiteDetails = () => {
 
     fetchSiteArtifacts();
   }, [id]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active": return "bg-success/10 text-success border-success/20";
-      case "inactive": return "bg-warning/10 text-warning border-warning/20";
-      case "archived": return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-      default: return "";
-    }
-  };
 
   const formatDate = (date: Date | Timestamp | undefined) => {
     if (!date) return "Unknown date";
@@ -213,6 +203,14 @@ const SiteDetails = () => {
             </Card>
           )}
 
+          {/* Site Conditions - Weather based on site coordinates */}
+          {site.location?.latitude && site.location?.longitude && (
+            <SiteConditions
+              latitude={site.location.latitude}
+              longitude={site.location.longitude}
+            />
+          )}
+
           {/* Site Header */}
           <Card>
             <CardContent className="pt-6">
@@ -238,14 +236,9 @@ const SiteDetails = () => {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h2 className="text-xl font-bold text-foreground">
-                      {site.name}
-                    </h2>
-                    <Badge variant="outline" className={getStatusColor(site.status)}>
-                      <span className="capitalize">{site.status}</span>
-                    </Badge>
-                  </div>
+                  <h2 className="text-xl font-bold text-foreground mb-2">
+                    {site.name}
+                  </h2>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <MapPin className="w-4 h-4" />
@@ -400,14 +393,6 @@ const SiteDetails = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Site Conditions - Weather based on site coordinates */}
-        {site.location?.latitude && site.location?.longitude && (
-          <SiteConditions
-            latitude={site.location.latitude}
-            longitude={site.location.longitude}
-          />
-        )}
 
         <BottomNav />
       </div>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Calendar, Users, FileText, Search, Loader2, Plus } from "lucide-react";
+import { MapPin, Calendar, Users, FileText, Search, Loader2, Plus, Star } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { PageHeader } from "@/components/PageHeader";
+import { SiteConditions } from "@/components/SiteConditions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +11,38 @@ import { Input } from "@/components/ui/input";
 import { useSites } from "@/hooks/use-sites";
 import { Site } from "@/services/sites";
 import { useAuth } from "@/hooks/use-auth";
+import { useArchaeologist } from "@/hooks/use-archaeologist";
+import { ArchaeologistService } from "@/services/archaeologists";
+import { useToast } from "@/components/ui/use-toast";
 import { Timestamp } from "firebase/firestore";
 
 const SiteLists = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isArchaeologist } = useArchaeologist();
+  const { toast } = useToast();
   const { sites, loading, error, fetchSites } = useSites();
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredSites, setFilteredSites] = useState<Site[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [settingActiveProject, setSettingActiveProject] = useState(false);
+  const [clearingAllActive, setClearingAllActive] = useState(false);
+
+  // Fetch active project ID for archaeologist
+  useEffect(() => {
+    const fetchActiveProject = async () => {
+      if (user && isArchaeologist) {
+        try {
+          const activeId = await ArchaeologistService.getActiveProjectId(user.uid);
+          setActiveProjectId(activeId);
+        } catch (error) {
+          console.error("Error fetching active project:", error);
+        }
+      }
+    };
+
+    fetchActiveProject();
+  }, [user, isArchaeologist]);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -34,15 +59,6 @@ const SiteLists = () => {
       setFilteredSites(filtered);
     }
   }, [searchQuery, sites]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active": return "bg-success/10 text-success border-success/20";
-      case "inactive": return "bg-warning/10 text-warning border-warning/20";
-      case "archived": return "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20";
-      default: return "";
-    }
-  };
 
   const formatDate = (date: Date | Timestamp | undefined) => {
     if (!date) return "Unknown date";
@@ -69,6 +85,76 @@ const SiteLists = () => {
 
   const handleSiteClick = (siteId: string) => {
     navigate(`/site/${siteId}`);
+  };
+
+  const handleToggleActiveProject = async (e: React.MouseEvent, siteId: string) => {
+    e.stopPropagation(); // Prevent navigation when clicking the star
+
+    if (!user || !isArchaeologist) {
+      toast({
+        title: "Access denied",
+        description: "Only archaeologists can mark active projects",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSettingActiveProject(true);
+
+      // If this site is already active, unmark it; otherwise, mark it as active
+      const newActiveProjectId = activeProjectId === siteId ? null : siteId;
+
+      await ArchaeologistService.setActiveProject(user.uid, newActiveProjectId);
+      setActiveProjectId(newActiveProjectId);
+
+      toast({
+        title: newActiveProjectId ? "Active project set" : "Active project removed",
+        description: newActiveProjectId
+          ? "This site is now your active project"
+          : "This site is no longer your active project"
+      });
+    } catch (error) {
+      console.error("Error setting active project:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update active project",
+        variant: "destructive"
+      });
+    } finally {
+      setSettingActiveProject(false);
+    }
+  };
+
+  const handleClearAllActiveProjects = async () => {
+    if (!user) {
+      toast({
+        title: "Access denied",
+        description: "You must be logged in",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setClearingAllActive(true);
+      await ArchaeologistService.clearAllActiveProjects();
+      setActiveProjectId(null);
+
+      toast({
+        title: "Success",
+        description: "All active project assignments have been cleared. Archaeologists can now choose their active sites."
+      });
+    } catch (error) {
+      console.error("Error clearing all active projects:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear active projects",
+        variant: "destructive"
+      });
+    } finally {
+      setClearingAllActive(false);
+    }
   };
 
   if (loading) {
@@ -101,17 +187,36 @@ const SiteLists = () => {
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
             <PageHeader />
-            {user && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/new-site")}
-                className="hover:bg-muted"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Site
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {user && isArchaeologist && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAllActiveProjects}
+                  disabled={clearingAllActive}
+                  className="hover:bg-destructive hover:text-destructive-foreground"
+                  title="Clear all active project assignments"
+                >
+                  {clearingAllActive ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Star className="w-4 h-4 mr-2" />
+                  )}
+                  Clear Active
+                </Button>
+              )}
+              {user && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/new-site")}
+                  className="hover:bg-muted"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Site
+                </Button>
+              )}
+            </div>
           </div>
           
           <div className="relative">
@@ -144,6 +249,20 @@ const SiteLists = () => {
           </div>
         </header>
 
+        {/* Site Conditions for Active Project - Only for Archaeologists */}
+        {user && isArchaeologist && activeProjectId && (() => {
+          const activeProjectSite = sites.find(site => site.id === activeProjectId);
+          if (activeProjectSite?.location?.latitude && activeProjectSite?.location?.longitude) {
+            return (
+              <SiteConditions
+                latitude={activeProjectSite.location.latitude}
+                longitude={activeProjectSite.location.longitude}
+              />
+            );
+          }
+          return null;
+        })()}
+
         <div className="p-4 space-y-3">
           {filteredSites.length === 0 ? (
             <Card className="p-8 text-center border-border">
@@ -152,42 +271,65 @@ const SiteLists = () => {
               </p>
             </Card>
           ) : (
-            filteredSites.map((site) => (
-              <Card
-                key={site.id}
-                className="p-4 border-border hover:shadow-md transition-all cursor-pointer"
-                onClick={() => handleSiteClick(site.id)}
-              >
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {site.images && site.images.length > 0 ? (
-                      <img
-                        src={site.images[0]}
-                        alt={site.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = '<span class="text-3xl">🏛️</span>';
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span className="text-3xl">🏛️</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground line-clamp-1">
-                        {site.name}
-                      </h3>
-                      <Badge variant="outline" className={getStatusColor(site.status)}>
-                        <span className="capitalize">{site.status}</span>
-                      </Badge>
+            filteredSites.map((site) => {
+              const isActiveProject = activeProjectId === site.id;
+              return (
+                <Card
+                  key={site.id}
+                  className={`p-4 border-border hover:shadow-md transition-all cursor-pointer ${
+                    isActiveProject ? 'ring-2 ring-primary/50 bg-primary/5' : ''
+                  }`}
+                  onClick={() => handleSiteClick(site.id)}
+                >
+                  <div className="flex gap-3">
+                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {site.images && site.images.length > 0 ? (
+                        <img
+                          src={site.images[0]}
+                          alt={site.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = '<span class="text-3xl">🏛️</span>';
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="text-3xl">🏛️</span>
+                      )}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-semibold text-foreground line-clamp-1 flex items-center gap-2">
+                          {site.name}
+                          {isActiveProject && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                              Active Project
+                            </Badge>
+                          )}
+                        </h3>
+                        {isArchaeologist && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={(e) => handleToggleActiveProject(e, site.id!)}
+                            disabled={settingActiveProject}
+                          >
+                            <Star
+                              className={`w-4 h-4 transition-colors ${
+                                isActiveProject
+                                  ? 'fill-yellow-500 text-yellow-500'
+                                  : 'text-muted-foreground hover:text-yellow-500'
+                              }`}
+                            />
+                          </Button>
+                        )}
+                      </div>
 
                     <div className="space-y-1 mb-3">
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -221,7 +363,8 @@ const SiteLists = () => {
                   </div>
                 </div>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
 

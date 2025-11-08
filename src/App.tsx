@@ -43,6 +43,10 @@ import CreateArtifact from "./pages/CreateArtifact";
 import EditArtifact from "./pages/EditArtifact";
 import Checkout from "./pages/Checkout";
 import Donations from "./pages/Donations";
+import ContactUs from "./pages/ContactUs";
+import Events from "./pages/Events";
+import EventDetails from "./pages/EventDetails";
+import CreateEvent from "./pages/CreateEvent";
 import NotFound from "./pages/NotFound";
 
 // Create React Query client instance
@@ -76,6 +80,9 @@ const App = () => (
             <Route path="/artifact/:id" element={<ArtifactDetails />} />
             <Route path="/checkout/:id" element={<Checkout />} />
             <Route path="/donations" element={<Donations />} />
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/event/:id" element={<EventDetails />} />
 
             {/* Protected creation routes - require authentication */}
             <Route path="/new-site" element={
@@ -106,6 +113,11 @@ const App = () => (
             <Route path="/edit-artifact/:id" element={
               <ProtectedRoute>
                 <EditArtifact />
+              </ProtectedRoute>
+            } />
+            <Route path="/create-event" element={
+              <ProtectedRoute>
+                <CreateEvent />
               </ProtectedRoute>
             } />
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, FileText, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,6 +15,12 @@ import { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useArchaeologist } from "@/hooks/use-archaeologist";
 
+// Default coordinates for Raleigh, North Carolina
+const DEFAULT_LOCATION = {
+  latitude: 35.7796,
+  longitude: -78.6382
+};
+
 const NewSite = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,15 +29,13 @@ const NewSite = () => {
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     location: {
-      address: "",
-      country: "",
-      region: "",
       latitude: "",
       longitude: ""
     },
@@ -39,6 +43,65 @@ const NewSite = () => {
     status: "active",
     dateDiscovered: new Date().toISOString().split('T')[0]
   });
+
+  // Get user's location on component mount
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setFormData(prev => ({
+              ...prev,
+              location: {
+                latitude: position.coords.latitude.toString(),
+                longitude: position.coords.longitude.toString()
+              }
+            }));
+            setLocationLoading(false);
+            console.log('✅ User location obtained:', position.coords.latitude, position.coords.longitude);
+            toast({
+              title: "Location Detected",
+              description: "Your current location has been set",
+            });
+          },
+          (error) => {
+            console.warn('⚠️ Location permission denied or unavailable:', error.message);
+            console.log('🏛️ Using default location: Raleigh, NC');
+            setFormData(prev => ({
+              ...prev,
+              location: {
+                latitude: DEFAULT_LOCATION.latitude.toString(),
+                longitude: DEFAULT_LOCATION.longitude.toString()
+              }
+            }));
+            setLocationLoading(false);
+            toast({
+              title: "Default Location Set",
+              description: "Using Raleigh, NC as default location",
+            });
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 0
+          }
+        );
+      } else {
+        console.warn('⚠️ Geolocation is not supported by this browser');
+        console.log('🏛️ Using default location: Raleigh, NC');
+        setFormData(prev => ({
+          ...prev,
+          location: {
+            latitude: DEFAULT_LOCATION.latitude.toString(),
+            longitude: DEFAULT_LOCATION.longitude.toString()
+          }
+        }));
+        setLocationLoading(false);
+      }
+    };
+
+    getUserLocation();
+  }, [toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -142,11 +205,8 @@ const NewSite = () => {
         name: formData.name,
         description: formData.description,
         location: {
-          address: formData.location.address || "",
-          country: formData.location.country || "",
-          region: formData.location.region || "",
-          latitude: formData.location.latitude ? parseFloat(formData.location.latitude) : 0,
-          longitude: formData.location.longitude ? parseFloat(formData.location.longitude) : 0
+          latitude: formData.location.latitude ? parseFloat(formData.location.latitude) : DEFAULT_LOCATION.latitude,
+          longitude: formData.location.longitude ? parseFloat(formData.location.longitude) : DEFAULT_LOCATION.longitude
         },
         period: formData.period || "",
         status: formData.status as "active" | "inactive" | "archived",
@@ -374,72 +434,52 @@ const NewSite = () => {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                Location Information
+                Location Coordinates
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="location.address">Address</Label>
-                <Input
-                  id="location.address"
-                  name="location.address"
-                  placeholder="Street address or location description"
-                  value={formData.location.address}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="location.region">Region/State</Label>
-                  <Input
-                    id="location.region"
-                    name="location.region"
-                    placeholder="e.g., Lazio"
-                    value={formData.location.region}
-                    onChange={handleInputChange}
-                  />
+              {locationLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">Detecting location...</span>
                 </div>
+              ) : (
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    Location has been automatically detected. You can modify the coordinates below if needed.
+                  </div>
 
-                <div>
-                  <Label htmlFor="location.country">Country</Label>
-                  <Input
-                    id="location.country"
-                    name="location.country"
-                    placeholder="e.g., Italy"
-                    value={formData.location.country}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="location.latitude">Latitude *</Label>
+                      <Input
+                        id="location.latitude"
+                        name="location.latitude"
+                        type="number"
+                        step="0.000001"
+                        placeholder="35.7796"
+                        value={formData.location.latitude}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="location.latitude">Latitude</Label>
-                  <Input
-                    id="location.latitude"
-                    name="location.latitude"
-                    type="number"
-                    step="0.000001"
-                    placeholder="41.902783"
-                    value={formData.location.latitude}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="location.longitude">Longitude</Label>
-                  <Input
-                    id="location.longitude"
-                    name="location.longitude"
-                    type="number"
-                    step="0.000001"
-                    placeholder="12.496365"
-                    value={formData.location.longitude}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
+                    <div>
+                      <Label htmlFor="location.longitude">Longitude *</Label>
+                      <Input
+                        id="location.longitude"
+                        name="location.longitude"
+                        type="number"
+                        step="0.000001"
+                        placeholder="-78.6382"
+                        value={formData.location.longitude}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

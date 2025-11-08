@@ -21,6 +21,7 @@ export interface Archaeologist {
   approvedAt: Date | Timestamp;
   approvedBy: string;
   status: 'pending' | 'approved' | 'rejected';
+  activeProjectId?: string; // ID of the site marked as active project
 }
 
 export class ArchaeologistService {
@@ -232,6 +233,66 @@ export class ArchaeologistService {
     } catch (error) {
       console.error('❌ Error deleting profile picture:', error);
       // Don't throw error as image might already be deleted
+    }
+  }
+
+  // Set active project for an archaeologist
+  static async setActiveProject(uid: string, siteId: string | null): Promise<void> {
+    try {
+      if (!db) throw new Error('Firestore not initialized');
+
+      const archaeologistDoc = doc(db, 'archaeologists', uid);
+      await setDoc(archaeologistDoc, {
+        activeProjectId: siteId
+      }, { merge: true });
+
+      console.log('✅ Active project set for archaeologist:', uid, 'Site:', siteId);
+    } catch (error) {
+      console.error('❌ Error setting active project:', error);
+      throw error;
+    }
+  }
+
+  // Get active project ID for an archaeologist
+  static async getActiveProjectId(uid: string): Promise<string | null> {
+    try {
+      if (!db) return null;
+
+      const archaeologistDoc = doc(db, 'archaeologists', uid);
+      const archaeologistSnap = await getDoc(archaeologistDoc);
+
+      if (archaeologistSnap.exists()) {
+        const data = archaeologistSnap.data();
+        return data.activeProjectId || null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching active project:', error);
+      return null;
+    }
+  }
+
+  // Clear all active project assignments for all archaeologists
+  static async clearAllActiveProjects(): Promise<void> {
+    try {
+      if (!db) throw new Error('Firestore not initialized');
+
+      const archaeologistsCollection = collection(db, 'archaeologists');
+      const querySnapshot = await getDocs(archaeologistsCollection);
+
+      const updatePromises = querySnapshot.docs.map(async (docSnapshot) => {
+        const archaeologistDoc = doc(db, 'archaeologists', docSnapshot.id);
+        await setDoc(archaeologistDoc, {
+          activeProjectId: null
+        }, { merge: true });
+      });
+
+      await Promise.all(updatePromises);
+      console.log('✅ All active projects cleared');
+    } catch (error) {
+      console.error('❌ Error clearing active projects:', error);
+      throw error;
     }
   }
 }

@@ -115,7 +115,12 @@ const SiteDetails = () => {
     }
   };
 
-  const canEdit = user && isArchaeologist && site && site.createdBy === user.uid;
+  // Allow editing if:
+  // 1. User created the site, OR
+  // 2. User is an archaeologist AND site is an active project (status: "active")
+  const isCreator = user && site && site.createdBy === user.uid;
+  const isActiveProject = site && site.status === "active";
+  const canEdit = user && isArchaeologist && site && (isCreator || isActiveProject);
 
   if (loading) {
     return (
@@ -281,6 +286,23 @@ const SiteDetails = () => {
               <CardContent>
                 <p className="text-muted-foreground whitespace-pre-wrap">
                   {site.researchAnalysis}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Field Notes */}
+          {(site as any).notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Field Notes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground whitespace-pre-wrap">
+                  {(site as any).notes}
                 </p>
               </CardContent>
             </Card>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShoppingCart, CreditCard, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, CreditCard, MapPin, Loader2, CheckCircle2, Gift } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { MerchandiseService, Merchandise } from "@/services/merchandise";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +21,8 @@ const CheckoutMerchandise = () => {
   const [processing, setProcessing] = useState(false);
   const [purchaseComplete, setPurchaseComplete] = useState(false);
   const [sameAsShipping, setSameAsShipping] = useState(false);
+  const [isGift, setIsGift] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
 
   const [purchaseData, setPurchaseData] = useState({
     quantity: 1,
@@ -92,9 +95,16 @@ const CheckoutMerchandise = () => {
     loadMerchandise();
   }, [id, navigate, toast]);
 
+  // When gift option is selected, disable same as shipping
+  useEffect(() => {
+    if (isGift) {
+      setSameAsShipping(false);
+    }
+  }, [isGift]);
+
   // Sync billing address with shipping address when checkbox is checked
   useEffect(() => {
-    if (sameAsShipping) {
+    if (sameAsShipping && !isGift) {
       setPurchaseData(prev => ({
         ...prev,
         billingAddress: prev.address,
@@ -104,7 +114,7 @@ const CheckoutMerchandise = () => {
         billingCountry: prev.country
       }));
     }
-  }, [sameAsShipping, purchaseData.address, purchaseData.city, purchaseData.state, purchaseData.zipCode, purchaseData.country]);
+  }, [sameAsShipping, isGift, purchaseData.address, purchaseData.city, purchaseData.state, purchaseData.zipCode, purchaseData.country]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -119,6 +129,40 @@ const CheckoutMerchandise = () => {
       ...prev,
       quantity: parseInt(value)
     }));
+  };
+
+  // Auto-fill with demo data for testing purposes
+  const fillDemoData = () => {
+    setPurchaseData({
+      quantity: 1,
+      cardNumber: "4532 1234 5678 9010",
+      cardName: "Sarah Johnson",
+      expiryDate: "12/25",
+      cvv: "123",
+      address: "456 Oak Avenue",
+      city: "Los Angeles",
+      state: "CA",
+      zipCode: "90001",
+      country: "USA",
+      billingAddress: "789 Pine Street",
+      billingCity: "San Francisco",
+      billingState: "CA",
+      billingZipCode: "94102",
+      billingCountry: "USA"
+    });
+
+    // Uncheck the same as shipping if it was checked
+    setSameAsShipping(false);
+
+    // If it's a gift, add a gift message
+    if (isGift) {
+      setGiftMessage("Wishing you all the best! Enjoy this special gift from our archaeological collection.");
+    }
+
+    toast({
+      title: "Demo Data Loaded",
+      description: "Form filled with sample data for testing",
+    });
   };
 
   const validateForm = () => {
@@ -218,10 +262,23 @@ const CheckoutMerchandise = () => {
               <p className="text-sm font-medium mb-2">Order Summary:</p>
               <p className="text-xs text-muted-foreground">{merchandise?.name}</p>
               <p className="text-xs text-muted-foreground">Quantity: {purchaseData.quantity}</p>
+              {isGift && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <Gift className="w-3 h-3" />
+                  Gift Order
+                </p>
+              )}
               <p className="text-sm font-bold text-primary mt-2">
                 Total: {merchandise?.currency} ${((merchandise?.price || 0) * purchaseData.quantity).toFixed(2)}
               </p>
             </div>
+
+            {isGift && giftMessage && (
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg mb-6">
+                <p className="text-sm font-medium mb-2 text-blue-800 dark:text-blue-200">Gift Message:</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 italic">"{giftMessage}"</p>
+              </div>
+            )}
             <Button onClick={() => navigate("/gift-shop")} className="w-full">
               Back to Gift Shop
             </Button>
@@ -317,6 +374,56 @@ const CheckoutMerchandise = () => {
 
           {/* Payment Form */}
           <form onSubmit={handlePurchase} className="space-y-4">
+            {/* Gift Option */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Gift className="w-5 h-5" />
+                  Gift Options
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isGift"
+                    checked={isGift}
+                    onCheckedChange={(checked) => setIsGift(checked === true)}
+                  />
+                  <label
+                    htmlFor="isGift"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    This is a gift for someone else
+                  </label>
+                </div>
+
+                {isGift && (
+                  <div>
+                    <Label htmlFor="giftMessage">Gift Message (Optional)</Label>
+                    <Textarea
+                      id="giftMessage"
+                      placeholder="Write a personal message for the recipient..."
+                      value={giftMessage}
+                      onChange={(e) => setGiftMessage(e.target.value)}
+                      className="min-h-24 border-border"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This message will be included with the gift
+                    </p>
+                  </div>
+                )}
+
+                {isGift && (
+                  <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      📦 Since this is a gift, the billing and shipping addresses must be different.
+                      The shipping address will be for the recipient.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -330,9 +437,10 @@ const CheckoutMerchandise = () => {
                   <Input
                     id="cardNumber"
                     name="cardNumber"
-                    placeholder="1234 5678 9012 3456"
+                    placeholder="1234 5678 9012 3456 (Click to fill demo data)"
                     value={purchaseData.cardNumber}
                     onChange={handleInputChange}
+                    onClick={fillDemoData}
                     maxLength={19}
                     required
                   />
@@ -384,7 +492,7 @@ const CheckoutMerchandise = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
-                  Shipping Address
+                  {isGift ? "Recipient's Shipping Address" : "Shipping Address"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -465,15 +573,22 @@ const CheckoutMerchandise = () => {
                   <Checkbox
                     id="sameAsShipping"
                     checked={sameAsShipping}
+                    disabled={isGift}
                     onCheckedChange={(checked) => setSameAsShipping(checked === true)}
                   />
                   <label
                     htmlFor="sameAsShipping"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    className={`text-sm font-medium leading-none ${isGift ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                   >
                     Billing address is the same as shipping address
                   </label>
                 </div>
+
+                {isGift && (
+                  <p className="text-xs text-muted-foreground">
+                    This option is disabled because you selected this as a gift
+                  </p>
+                )}
 
                 {!sameAsShipping && (
                   <>

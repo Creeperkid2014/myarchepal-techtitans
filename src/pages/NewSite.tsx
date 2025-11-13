@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, FileText, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { MapPin, FileText, Save, Loader2, Upload, Image as ImageIcon, Mic, MicOff } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ const NewSite = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -43,7 +45,8 @@ const NewSite = () => {
     },
     period: "",
     status: "active",
-    dateDiscovered: new Date().toISOString().split('T')[0]
+    dateDiscovered: new Date().toISOString().split('T')[0],
+    notes: ""
   });
 
   // Get user's location on component mount
@@ -104,6 +107,89 @@ const NewSite = () => {
 
     getUserLocation();
   }, [toast]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = true;
+        recognitionInstance.interimResults = true;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          if (finalTranscript) {
+            setFormData(prev => ({
+              ...prev,
+              notes: prev.notes + finalTranscript
+            }));
+          }
+        };
+
+        recognitionInstance.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecording(false);
+          toast({
+            title: "Speech Recognition Error",
+            description: "Unable to recognize speech. Please try again.",
+            variant: "destructive"
+          });
+        };
+
+        recognitionInstance.onend = () => {
+          setIsRecording(false);
+        };
+
+        setRecognition(recognitionInstance);
+      }
+    }
+  }, [toast]);
+
+  const toggleRecording = () => {
+    if (!recognition) {
+      toast({
+        title: "Speech Recognition Not Available",
+        description: "Your browser doesn't support speech recognition. Please use Chrome, Edge, or Safari.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognition.start();
+        setIsRecording(true);
+        toast({
+          title: "Recording Started",
+          description: "Speak now to add notes...",
+        });
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start recording. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -182,10 +268,10 @@ const NewSite = () => {
     });
 
     // Basic validation
-    if (!formData.name || !formData.description) {
+    if (!formData.name) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please provide a site name",
         variant: "destructive"
       });
       return;
@@ -216,7 +302,8 @@ const NewSite = () => {
         dateDiscovered: Timestamp.fromDate(new Date(formData.dateDiscovered)),
         artifacts: [],
         images: [],
-        createdBy: user?.uid || "anonymous"
+        createdBy: user?.uid || "anonymous",
+        notes: formData.notes || ""
       };
 
       const siteId = await SitesService.createSite(siteData);
@@ -382,7 +469,7 @@ const NewSite = () => {
               </div>
 
               <div>
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
                   name="description"
@@ -390,7 +477,6 @@ const NewSite = () => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={4}
-                  required
                 />
               </div>
 
@@ -447,6 +533,58 @@ const NewSite = () => {
             </CardContent>
           </Card>
 
+          {/* Field Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Field Notes (Speech-to-Text)
+                </div>
+                <Button
+                  type="button"
+                  variant={isRecording ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleRecording}
+                  className="gap-2"
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="w-4 h-4" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      Record
+                    </>
+                  )}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  placeholder="Field notes, site observations, initial impressions... (You can type or use voice recording)"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows={6}
+                />
+                {isRecording && (
+                  <div className="flex items-center gap-2 text-sm text-destructive mt-2">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                    <span>Recording in progress... Speak now</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Use the microphone button to record voice notes, or type manually. Perfect for capturing site observations while in the field.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Location Information */}
           <Card>
             <CardHeader>
@@ -469,7 +607,7 @@ const NewSite = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="location.latitude">Latitude *</Label>
+                      <Label htmlFor="location.latitude">Latitude</Label>
                       <Input
                         id="location.latitude"
                         name="location.latitude"
@@ -478,12 +616,11 @@ const NewSite = () => {
                         placeholder="35.7796"
                         value={formData.location.latitude}
                         onChange={handleInputChange}
-                        required
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="location.longitude">Longitude *</Label>
+                      <Label htmlFor="location.longitude">Longitude</Label>
                       <Input
                         id="location.longitude"
                         name="location.longitude"
@@ -492,7 +629,6 @@ const NewSite = () => {
                         placeholder="-78.6382"
                         value={formData.location.longitude}
                         onChange={handleInputChange}
-                        required
                       />
                     </div>
                   </div>

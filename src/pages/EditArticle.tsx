@@ -161,10 +161,10 @@ const EditArticle = () => {
     }
 
     // Basic validation
-    if (!formData.title || !formData.excerpt || !formData.content || !formData.category) {
+    if (!formData.title) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please provide an article title",
         variant: "destructive"
       });
       return;
@@ -348,7 +348,6 @@ const EditArticle = () => {
                   placeholder="Brief summary of your article (2-3 sentences)"
                   value={formData.excerpt}
                   onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                  required
                   className="pl-10 min-h-20 border-border"
                 />
               </div>
@@ -361,7 +360,6 @@ const EditArticle = () => {
                 placeholder="Write your full article content here..."
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                required
                 className="min-h-48 border-border"
               />
             </div>

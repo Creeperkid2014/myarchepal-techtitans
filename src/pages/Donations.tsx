@@ -30,6 +30,27 @@ const Donations = () => {
 
   const predefinedAmounts = ["10", "25", "50", "100", "250"];
 
+  // Auto-fill with demo data for testing purposes
+  const fillDemoData = () => {
+    setDonationType("one-time");
+    setAmount("50");
+    setCustomAmount("");
+    setDonorName("John Smith");
+    setDonorEmail("john.smith@example.com");
+    setMessage("Happy to support archaeological preservation!");
+    setCardNumber("4532 1234 5678 9010");
+    setExpiryDate("12/25");
+    setCvv("123");
+    setBillingAddress("123 Main Street");
+    setCity("New York");
+    setZipCode("10001");
+
+    toast({
+      title: "Demo Data Loaded",
+      description: "Form filled with sample data for testing",
+    });
+  };
+
   // Format card number with spaces
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -260,9 +281,10 @@ const Donations = () => {
                     <Label htmlFor="donor-name">Full Name *</Label>
                     <Input
                       id="donor-name"
-                      placeholder="John Doe"
+                      placeholder="John Doe (Click to fill demo data)"
                       value={donorName}
                       onChange={(e) => setDonorName(e.target.value)}
+                      onClick={fillDemoData}
                       required
                     />
                   </div>

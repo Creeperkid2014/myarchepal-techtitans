@@ -1,4 +1,4 @@
-import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart, PersonStanding, Store } from "lucide-react";
+import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart, PersonStanding, Store, BookOpen } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -19,6 +19,7 @@ const navItems = [
   { icon: Package, label: "Artifacts", path: "/artifacts" },
   { icon: Newspaper, label: "Articles", path: "/articles" },
   { icon: Calendar, label: "Events", path: "/events" },
+  { icon: BookOpen, label: "Diary", path: "/digital-diary", requiresAuth: true },
   { icon: HandHeart, label: "Support Us", path: "/support", hasSubmenu: true }
 ];
 
@@ -68,8 +69,11 @@ export const BottomNav = () => {
     }
   };
 
-  const leftItems = navItems.slice(0, 3);
-  const rightItems = navItems.slice(3);
+  // Filter items based on auth status
+  const visibleNavItems = navItems.filter(item => !item.requiresAuth || isAuthenticated);
+
+  const leftItems = visibleNavItems.slice(0, 3);
+  const rightItems = visibleNavItems.slice(3);
 
   return (
     <>

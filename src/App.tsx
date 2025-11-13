@@ -51,6 +51,7 @@ import GiftShop from "./pages/GiftShop";
 import CheckoutMerchandise from "./pages/CheckoutMerchandise";
 import CreateMerchandise from "./pages/CreateMerchandise";
 import Contributors from "./pages/Contributors";
+import DigitalDiary from "./pages/DigitalDiary";
 import NotFound from "./pages/NotFound";
 
 // Create React Query client instance
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/contact" element={<ContactUs />} />
             <Route path="/events" element={<Events />} />
             <Route path="/event/:id" element={<EventDetails />} />
+            <Route path="/digital-diary" element={<DigitalDiary />} />
 
             {/* Protected creation routes - require authentication */}
             <Route path="/new-site" element={

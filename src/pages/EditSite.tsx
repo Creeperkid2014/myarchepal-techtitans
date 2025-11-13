@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, FileText, Camera, Save, Loader2, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, FileText, Camera, Save, Loader2, AlertCircle, Upload, Image as ImageIcon, Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +27,8 @@ const EditSite = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -42,7 +44,8 @@ const EditSite = () => {
     },
     period: "",
     status: "active" as "active" | "inactive" | "archived",
-    dateDiscovered: ""
+    dateDiscovered: "",
+    notes: ""
   });
 
   useEffect(() => {
@@ -85,7 +88,8 @@ const EditSite = () => {
           },
           period: siteData.period || "",
           status: siteData.status || "active",
-          dateDiscovered
+          dateDiscovered,
+          notes: (siteData as any).notes || ""
         });
       } catch (error) {
         console.error("Error fetching site:", error);
@@ -98,19 +102,114 @@ const EditSite = () => {
     fetchSite();
   }, [id]);
 
-  // Check if user can edit this site
-  const canEdit = user && isArchaeologist && site && site.createdBy === user.uid;
+  // Allow editing if:
+  // 1. User created the site, OR
+  // 2. User is an archaeologist AND site is an active project (status: "active")
+  const isCreator = user && site && site.createdBy === user.uid;
+  const isActiveProject = site && site.status === "active";
+  const canEdit = user && isArchaeologist && site && (isCreator || isActiveProject);
 
   useEffect(() => {
     if (!siteLoading && !archaeologistLoading && !canEdit) {
+      const reason = !user
+        ? "You must be logged in to edit sites"
+        : !isArchaeologist
+        ? "Only archaeologists can edit sites"
+        : !isActiveProject
+        ? "You can only edit sites that you created or active projects"
+        : "You don't have permission to edit this site";
+
       toast({
         title: "Access Denied",
-        description: "You can only edit sites that you created",
+        description: reason,
         variant: "destructive"
       });
       navigate(`/site/${id}`);
     }
-  }, [canEdit, siteLoading, archaeologistLoading, navigate, id, toast]);
+  }, [canEdit, siteLoading, archaeologistLoading, navigate, id, toast, user, isArchaeologist, isActiveProject]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = true;
+        recognitionInstance.interimResults = true;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          if (finalTranscript) {
+            setFormData(prev => ({
+              ...prev,
+              notes: prev.notes + finalTranscript
+            }));
+          }
+        };
+
+        recognitionInstance.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecording(false);
+          toast({
+            title: "Speech Recognition Error",
+            description: "Unable to recognize speech. Please try again.",
+            variant: "destructive"
+          });
+        };
+
+        recognitionInstance.onend = () => {
+          setIsRecording(false);
+        };
+
+        setRecognition(recognitionInstance);
+      }
+    }
+  }, [toast]);
+
+  const toggleRecording = () => {
+    if (!recognition) {
+      toast({
+        title: "Speech Recognition Not Available",
+        description: "Your browser doesn't support speech recognition. Please use Chrome, Edge, or Safari.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognition.start();
+        setIsRecording(true);
+        toast({
+          title: "Recording Started",
+          description: "Speak now to add notes...",
+        });
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start recording. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -190,10 +289,10 @@ const EditSite = () => {
     }
 
     // Basic validation
-    if (!formData.name || !formData.description) {
+    if (!formData.name) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please provide a site name",
         variant: "destructive"
       });
       return;
@@ -216,6 +315,7 @@ const EditSite = () => {
         period: formData.period || "",
         status: formData.status,
         dateDiscovered: Timestamp.fromDate(new Date(formData.dateDiscovered)),
+        notes: formData.notes || ""
       };
 
       await SitesService.updateSite(site.id!, updateData);
@@ -393,7 +493,7 @@ const EditSite = () => {
               </div>
 
               <div>
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
                   name="description"
@@ -401,7 +501,6 @@ const EditSite = () => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={4}
-                  required
                 />
               </div>
 
@@ -454,6 +553,58 @@ const EditSite = () => {
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Field Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Field Notes (Speech-to-Text)
+                </div>
+                <Button
+                  type="button"
+                  variant={isRecording ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleRecording}
+                  className="gap-2"
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="w-4 h-4" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      Record
+                    </>
+                  )}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  placeholder="Field notes, site observations, updates... (You can type or use voice recording)"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows={6}
+                />
+                {isRecording && (
+                  <div className="flex items-center gap-2 text-sm text-destructive mt-2">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                    <span>Recording in progress... Speak now</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Use the microphone button to add voice notes, or type manually. Perfect for capturing site observations and updates.
+                </p>
               </div>
             </CardContent>
           </Card>

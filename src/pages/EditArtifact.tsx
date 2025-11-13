@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2, DollarSign } from "lucide-react";
+import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2, DollarSign, Mic, MicOff, FileText } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +46,8 @@ const EditArtifact = () => {
   const [selected3DModel, setSelected3DModel] = useState<File | null>(null);
   const [model3DForSale, setModel3DForSale] = useState(false);
   const [model3DPrice, setModel3DPrice] = useState<string>("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -63,6 +65,7 @@ const EditArtifact = () => {
     tags: "",
     finder: "",
     siteId: "",
+    notes: "",
   });
 
   // Fetch artifact data
@@ -126,6 +129,7 @@ const EditArtifact = () => {
           tags: artifactData.tags?.join(', ') || "",
           finder: artifactData.finder || "",
           siteId: artifactData.siteId || "",
+          notes: (artifactData as any).notes || "",
         });
 
         // Set existing AI summary if available
@@ -161,7 +165,7 @@ const EditArtifact = () => {
     fetchArtifact();
   }, [id, user, navigate, toast]);
 
-  // Fetch sites created by the current user
+  // Fetch active sites created by the current user
   useEffect(() => {
     const fetchUserSites = async () => {
       if (!user) return;
@@ -169,7 +173,10 @@ const EditArtifact = () => {
       try {
         setSitesLoading(true);
         const allSites = await SitesService.getAllSites();
-        const filteredSites = allSites.filter(site => site.createdBy === user.uid);
+        // Filter for sites created by user AND with active status
+        const filteredSites = allSites.filter(
+          site => site.createdBy === user.uid && site.status === 'active'
+        );
         setUserSites(filteredSites);
       } catch (error) {
         console.error('Error fetching user sites:', error);
@@ -187,6 +194,89 @@ const EditArtifact = () => {
       fetchUserSites();
     }
   }, [user, isArchaeologist, toast]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = true;
+        recognitionInstance.interimResults = true;
+        recognitionInstance.lang = 'en-US';
+
+        recognitionInstance.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          if (finalTranscript) {
+            setFormData(prev => ({
+              ...prev,
+              notes: prev.notes + finalTranscript
+            }));
+          }
+        };
+
+        recognitionInstance.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecording(false);
+          toast({
+            title: "Speech Recognition Error",
+            description: "Unable to recognize speech. Please try again.",
+            variant: "destructive"
+          });
+        };
+
+        recognitionInstance.onend = () => {
+          setIsRecording(false);
+        };
+
+        setRecognition(recognitionInstance);
+      }
+    }
+  }, [toast]);
+
+  const toggleRecording = () => {
+    if (!recognition) {
+      toast({
+        title: "Speech Recognition Not Available",
+        description: "Your browser doesn't support speech recognition. Please use Chrome, Edge, or Safari.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognition.start();
+        setIsRecording(true);
+        toast({
+          title: "Recording Started",
+          description: "Speak now to add notes...",
+        });
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start recording. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -304,10 +394,10 @@ const EditArtifact = () => {
     }
 
     // Basic validation
-    if (!formData.name || !formData.type || !formData.material || !formData.condition || !formData.location || !formData.description || !formData.significance || !formData.siteId) {
+    if (!formData.name) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please provide an artifact name",
         variant: "destructive"
       });
       return;
@@ -328,7 +418,7 @@ const EditArtifact = () => {
       // Find the selected site to get its name
       const selectedSite = userSites.find(site => site.id === formData.siteId);
 
-      const updateData = {
+      const updateData: any = {
         name: formData.name,
         type: formData.type,
         period: formData.period,
@@ -347,8 +437,13 @@ const EditArtifact = () => {
         siteName: selectedSite?.name || artifact.siteName || "",
         siteId: formData.siteId,
         model3DForSale: model3DForSale,
-        model3DPrice: model3DForSale && model3DPrice ? parseFloat(model3DPrice) : undefined,
+        notes: formData.notes || "",
       };
+
+      // Only include model3DPrice if it has a valid value
+      if (model3DForSale && model3DPrice) {
+        updateData.model3DPrice = parseFloat(model3DPrice);
+      }
 
       await ArtifactsService.updateArtifact(id, updateData);
 
@@ -528,6 +623,55 @@ const EditArtifact = () => {
             </Card>
           )}
 
+          {/* Field Notes Section with Speech-to-Text */}
+          <Card className="border-border">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notes" className="text-foreground flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Field Notes (Speech-to-Text)
+                  </Label>
+                  <Button
+                    type="button"
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleRecording}
+                    className="gap-2"
+                  >
+                    {isRecording ? (
+                      <>
+                        <MicOff className="w-4 h-4" />
+                        Stop Recording
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-4 h-4" />
+                        Start Recording
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Textarea
+                  id="notes"
+                  placeholder="Field notes, observations, updates... (You can type or use voice recording)"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="min-h-32 border-border"
+                />
+                {isRecording && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                    <span>Recording in progress... Speak now</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Use the microphone button to add voice notes, or type manually. Perfect for capturing additional details.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 3D Image Upload Section */}
           <Card className="border-border">
             <CardContent className="pt-6">
@@ -635,7 +779,7 @@ const EditArtifact = () => {
                   {model3DForSale && (
                     <div className="space-y-2">
                       <Label htmlFor="model-price" className="text-foreground">
-                        Download Price (USD) *
+                        Download Price (USD)
                       </Label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -647,7 +791,6 @@ const EditArtifact = () => {
                           placeholder="e.g., 9.99"
                           value={model3DPrice}
                           onChange={(e) => setModel3DPrice(e.target.value)}
-                          required={model3DForSale}
                           className="pl-10 border-border"
                         />
                       </div>
@@ -675,7 +818,7 @@ const EditArtifact = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="siteId" className="text-foreground">Associated Site *</Label>
+              <Label htmlFor="siteId" className="text-foreground">Associated Site</Label>
               <Select
                 value={formData.siteId}
                 onValueChange={(value) => setFormData({ ...formData, siteId: value })}
@@ -699,7 +842,7 @@ const EditArtifact = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="type" className="text-foreground">Type *</Label>
+                <Label htmlFor="type" className="text-foreground">Type</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
@@ -718,7 +861,7 @@ const EditArtifact = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="period" className="text-foreground">Period *</Label>
+                <Label htmlFor="period" className="text-foreground">Period</Label>
                 <Select
                   value={formData.period}
                   onValueChange={(value) => setFormData({ ...formData, period: value })}
@@ -750,7 +893,7 @@ const EditArtifact = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="material" className="text-foreground">Material *</Label>
+                <Label htmlFor="material" className="text-foreground">Material</Label>
                 <Select
                   value={formData.material}
                   onValueChange={(value) => setFormData({ ...formData, material: value })}
@@ -769,7 +912,7 @@ const EditArtifact = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="condition" className="text-foreground">Condition *</Label>
+                <Label htmlFor="condition" className="text-foreground">Condition</Label>
                 <Select
                   value={formData.condition}
                   onValueChange={(value) => setFormData({ ...formData, condition: value })}
@@ -803,7 +946,7 @@ const EditArtifact = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location" className="text-foreground">Find Location *</Label>
+              <Label htmlFor="location" className="text-foreground">Find Location</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -811,14 +954,13 @@ const EditArtifact = () => {
                   placeholder="e.g., Sector A, Grid 23"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  required
                   className="pl-10 border-border"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="excavationDate" className="text-foreground">Excavation Date *</Label>
+              <Label htmlFor="excavationDate" className="text-foreground">Excavation Date</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -826,14 +968,13 @@ const EditArtifact = () => {
                   type="date"
                   value={formData.excavationDate}
                   onChange={(e) => setFormData({ ...formData, excavationDate: e.target.value })}
-                  required
                   className="pl-10 border-border"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="significance" className="text-foreground">Significance *</Label>
+              <Label htmlFor="significance" className="text-foreground">Significance</Label>
               <Select
                 value={formData.significance}
                 onValueChange={(value) => setFormData({ ...formData, significance: value })}
@@ -852,13 +993,12 @@ const EditArtifact = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-foreground">Description *</Label>
+              <Label htmlFor="description" className="text-foreground">Description</Label>
               <Textarea
                 id="description"
                 placeholder="Detailed description of the artifact, notable features, decoration..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                required
                 className="min-h-32 border-border"
               />
             </div>

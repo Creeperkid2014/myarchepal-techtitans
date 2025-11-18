@@ -177,7 +177,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         {
           email: user.email || "",
           name: user.displayName || user.email || "Anonymous",
-          avatar: user.photoURL || undefined,
+          avatar: user.photoURL || "",
         }
       );
 
@@ -264,7 +264,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         {
           email: user.email || "",
           name: user.displayName || user.email || "Anonymous",
-          avatar: user.photoURL || undefined,
+          avatar: user.photoURL || "",
         }
       );
 
@@ -332,7 +332,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         userId: user.uid,
         userEmail: user.email || "",
         userName: user.displayName || user.email || "Anonymous",
-        userAvatar: user.photoURL || undefined,
+        userAvatar: user.photoURL || "",
         content,
       });
     } catch (err) {

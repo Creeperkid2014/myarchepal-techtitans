@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Calendar, Clock, Image as ImageIcon, Mic, MicOff, Plus, Trash2, Loader2 } from "lucide-react";
+import { BookOpen, Calendar, Clock, Image as ImageIcon, Mic, MicOff, Plus, Trash2, Loader2, MapPin, Package, Layers } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { AccountButton } from "@/components/AccountButton";
 import { BottomNav } from "@/components/BottomNav";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { db, storage } from "@/lib/firebase";
@@ -29,6 +30,7 @@ interface DiaryEntry {
   userId: string;
   title: string;
   content: string;
+  category: "site" | "artifact" | "other";
   imageUrl?: string;
   aiImageSummary?: string;
   createdAt: Timestamp;
@@ -54,6 +56,7 @@ const DigitalDiary = () => {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
+    category: "artifact" as "site" | "artifact" | "other",
   });
 
   // Fetch diary entries
@@ -187,7 +190,7 @@ const DigitalDiary = () => {
   const analyzeImageWithAI = async (file: File) => {
     try {
       setAnalyzingImage(true);
-      console.log('🤖 Starting AI analysis...');
+      console.log('Starting AI analysis...');
 
       const summary = await AzureOpenAIService.analyzeArtifactImage(file);
       setAiSummary(summary);
@@ -278,6 +281,7 @@ const DigitalDiary = () => {
         userId: user.uid,
         title: formData.title || "Untitled Entry",
         content: formData.content,
+        category: formData.category,
         createdAt: Timestamp.fromDate(now),
         date: now.toLocaleDateString(),
         time: now.toLocaleTimeString(),
@@ -317,7 +321,7 @@ const DigitalDiary = () => {
       });
 
       // Reset form
-      setFormData({ title: "", content: "" });
+      setFormData({ title: "", content: "", category: "artifact" });
       setSelectedImage(null);
       setImagePreview(null);
       setAiSummary("");
@@ -458,7 +462,23 @@ const DigitalDiary = () => {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{entry.title}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">{entry.title}</CardTitle>
+                          {entry.category && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
+                              entry.category === "site"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : entry.category === "artifact"
+                                ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                                : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                            }`}>
+                              {entry.category === "site" ? <MapPin className="w-3 h-3" /> : null}
+                              {entry.category === "artifact" ? <Package className="w-3 h-3" /> : null}
+                              {entry.category === "other" ? <Layers className="w-3 h-3" /> : null}
+                              {entry.category.charAt(0).toUpperCase() + entry.category.slice(1)}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
@@ -566,6 +586,40 @@ const DigitalDiary = () => {
                   )}
                 </div>
               )}
+
+              {/* Category Selection */}
+              <div className="space-y-3">
+                <Label>Entry Type</Label>
+                <RadioGroup
+                  value={formData.category}
+                  onValueChange={(value: "site" | "artifact" | "other") =>
+                    setFormData({ ...formData, category: value })
+                  }
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="site" id="site" />
+                    <Label htmlFor="site" className="cursor-pointer flex items-center gap-2 font-normal">
+                      <MapPin className="w-4 h-4" />
+                      Site
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="artifact" id="artifact" />
+                    <Label htmlFor="artifact" className="cursor-pointer flex items-center gap-2 font-normal">
+                      <Package className="w-4 h-4" />
+                      Artifact
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="other" id="other" />
+                    <Label htmlFor="other" className="cursor-pointer flex items-center gap-2 font-normal">
+                      <Layers className="w-4 h-4" />
+                      Other
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
 
               {/* Title */}
               <div className="space-y-2">

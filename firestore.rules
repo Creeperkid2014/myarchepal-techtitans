@@ -43,6 +43,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Digital Diary Collection - Users can manage their own diary entries
+    match /DigitalDiary/{entryId} {
+      allow read, write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     // ========================================================================
     // CHAT SYSTEM RULES
     // ========================================================================
@@ -78,8 +84,9 @@ service cloud.firestore {
       // Only group members can read
       allow read: if isGroupMember(groupId);
 
-      // Only admins can update/delete
-      allow update, delete: if isGroupMember(groupId);
+      // Creator or group members can update/delete
+      allow update, delete: if request.auth != null &&
+                              (isGroupMember(groupId) || resource.data.createdBy == request.auth.uid);
     }
 
     // GroupMemberships Collection
@@ -102,8 +109,9 @@ service cloud.firestore {
       // Only room members can read
       allow read: if isRoomMember(roomId);
 
-      // Only admins can update/delete
-      allow update, delete: if isRoomMember(roomId);
+      // Creator or room members can update/delete
+      allow update, delete: if request.auth != null &&
+                              (isRoomMember(roomId) || resource.data.createdBy == request.auth.uid);
     }
 
     // RoomMemberships Collection

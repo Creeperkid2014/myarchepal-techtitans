@@ -1,4 +1,4 @@
-import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart, PersonStanding, Store, BookOpen } from "lucide-react";
+import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart, PersonStanding, Store, BookOpen, MessageSquare } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -19,6 +19,7 @@ const navItems = [
   { icon: Package, label: "Artifacts", path: "/artifacts" },
   { icon: Newspaper, label: "Articles", path: "/articles" },
   { icon: Calendar, label: "Events", path: "/events" },
+  { icon: MessageSquare, label: "Chat", path: "/chat", requiresAuth: true },
   { icon: BookOpen, label: "Diary", path: "/digital-diary", requiresAuth: true },
   { icon: HandHeart, label: "Support Us", path: "/support", hasSubmenu: true }
 ];

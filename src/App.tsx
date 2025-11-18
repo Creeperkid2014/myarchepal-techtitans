@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ChatProvider } from "@/hooks/use-chat";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NewSite from "./pages/NewSite";
@@ -52,6 +53,7 @@ import CheckoutMerchandise from "./pages/CheckoutMerchandise";
 import CreateMerchandise from "./pages/CreateMerchandise";
 import Contributors from "./pages/Contributors";
 import DigitalDiary from "./pages/DigitalDiary";
+import ChatArea from "./pages/ChatArea";
 import NotFound from "./pages/NotFound";
 
 // Create React Query client instance
@@ -64,12 +66,14 @@ const App = () => (
     <TooltipProvider>
       {/* Auth provider wraps entire app to provide authentication state */}
       <AuthProvider>
-        {/* Toast notification components */}
-        <Toaster />
-        <Sonner />
-        {/* React Router for navigation */}
-        <BrowserRouter>
-          <Routes>
+        {/* Chat provider for multi-room chat functionality */}
+        <ChatProvider>
+          {/* Toast notification components */}
+          <Toaster />
+          <Sonner />
+          {/* React Router for navigation */}
+          <BrowserRouter>
+            <Routes>
             {/* Public routes */}
             <Route path="/" element={<Index />} />
             <Route path="/site-map" element={<SiteMap />} />
@@ -92,6 +96,11 @@ const App = () => (
             <Route path="/events" element={<Events />} />
             <Route path="/event/:id" element={<EventDetails />} />
             <Route path="/digital-diary" element={<DigitalDiary />} />
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <ChatArea />
+              </ProtectedRoute>
+            } />
 
             {/* Protected creation routes - require authentication */}
             <Route path="/new-site" element={
@@ -146,8 +155,9 @@ const App = () => (
             {/* Catch-all route for 404 pages */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </ChatProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

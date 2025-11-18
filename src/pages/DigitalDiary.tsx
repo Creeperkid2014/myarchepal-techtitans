@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { AzureOpenAIService } from "@/services/azure-openai";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ interface DiaryEntry {
   title: string;
   content: string;
   imageUrl?: string;
+  aiImageSummary?: string;
   createdAt: Timestamp;
   date: string;
   time: string;
@@ -46,6 +48,8 @@ const DigitalDiary = () => {
   const [recognition, setRecognition] = useState<any>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [analyzingImage, setAnalyzingImage] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -180,6 +184,30 @@ const DigitalDiary = () => {
     }
   };
 
+  const analyzeImageWithAI = async (file: File) => {
+    try {
+      setAnalyzingImage(true);
+      console.log('🤖 Starting AI analysis...');
+
+      const summary = await AzureOpenAIService.analyzeArtifactImage(file);
+      setAiSummary(summary);
+
+      toast({
+        title: "AI Analysis Complete",
+        description: "Image has been analyzed and summary generated",
+      });
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      toast({
+        title: "AI Analysis Failed",
+        description: "Could not analyze image, but you can still save the entry",
+        variant: "destructive"
+      });
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -208,12 +236,17 @@ const DigitalDiary = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Start AI analysis
+      analyzeImageWithAI(file);
     }
   };
 
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    setAiSummary("");
+    setAnalyzingImage(false);
   };
 
   const handleCreateEntry = async (e: React.FormEvent) => {
@@ -248,6 +281,7 @@ const DigitalDiary = () => {
         createdAt: Timestamp.fromDate(now),
         date: now.toLocaleDateString(),
         time: now.toLocaleTimeString(),
+        aiImageSummary: aiSummary || "",
       };
 
       const docRef = await addDoc(collection(db, "DigitalDiary"), entryData);
@@ -286,6 +320,8 @@ const DigitalDiary = () => {
       setFormData({ title: "", content: "" });
       setSelectedImage(null);
       setImagePreview(null);
+      setAiSummary("");
+      setAnalyzingImage(false);
       setIsCreateDialogOpen(false);
 
       // Refresh entries
@@ -507,6 +543,30 @@ const DigitalDiary = () => {
                 className="hidden"
               />
 
+              {/* AI Image Analysis Section */}
+              {(selectedImage || aiSummary) && (
+                <div className="space-y-2">
+                  <Label className="text-foreground flex items-center gap-2">
+                    🤖 AI Image Analysis
+                    {analyzingImage && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </Label>
+                  {aiSummary ? (
+                    <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                      <p className="text-sm text-muted-foreground mb-2">Generated analysis:</p>
+                      <p className="text-sm">{aiSummary}</p>
+                    </div>
+                  ) : analyzingImage ? (
+                    <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-border">
+                      <p className="text-sm text-muted-foreground">Analyzing image with AI...</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-border">
+                      <p className="text-sm text-muted-foreground">AI analysis will appear here after image upload</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Title (optional)</Label>
@@ -584,6 +644,8 @@ const DigitalDiary = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+
 
         <BottomNav />
       </div>

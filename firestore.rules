@@ -43,6 +43,100 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // ========================================================================
+    // CHAT SYSTEM RULES
+    // ========================================================================
+
+    // Helper function to check if user is a member of a group
+    function isGroupMember(groupId) {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/GroupMemberships/$(groupId + '_' + request.auth.uid));
+    }
+
+    // Helper function to check if user is a member of a room
+    function isRoomMember(roomId) {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/RoomMemberships/$(roomId + '_' + request.auth.uid));
+    }
+
+    // Helper function to get user's role in a room
+    function getRoomRole(roomId) {
+      return get(/databases/$(database)/documents/RoomMemberships/$(roomId + '_' + request.auth.uid)).data.role;
+    }
+
+    // Helper function to check if user is admin or sub-admin
+    function isRoomAdmin(roomId) {
+      return isRoomMember(roomId) &&
+             (getRoomRole(roomId) == 'admin' || getRoomRole(roomId) == 'sub-admin');
+    }
+
+    // ChatGroups Collection
+    match /ChatGroups/{groupId} {
+      // Anyone authenticated can create a group
+      allow create: if request.auth != null;
+
+      // Only group members can read
+      allow read: if isGroupMember(groupId);
+
+      // Only admins can update/delete
+      allow update, delete: if isGroupMember(groupId);
+    }
+
+    // GroupMemberships Collection
+    match /GroupMemberships/{membershipId} {
+      // Members can read their own membership and other memberships in their groups
+      allow read: if request.auth != null;
+
+      // System creates memberships when groups are created
+      allow create: if request.auth != null;
+
+      // Admins can update/delete memberships
+      allow update, delete: if request.auth != null;
+    }
+
+    // ChatRooms Collection
+    match /ChatRooms/{roomId} {
+      // Anyone authenticated can create a room
+      allow create: if request.auth != null;
+
+      // Only room members can read
+      allow read: if isRoomMember(roomId);
+
+      // Only admins can update/delete
+      allow update, delete: if isRoomMember(roomId);
+    }
+
+    // RoomMemberships Collection
+    match /RoomMemberships/{membershipId} {
+      // Members can read their own membership and other memberships in their rooms
+      allow read: if request.auth != null;
+
+      // System creates memberships when rooms are created
+      allow create: if request.auth != null;
+
+      // Admins can update/delete memberships
+      allow update, delete: if request.auth != null;
+    }
+
+    // Messages Collection
+    match /Messages/{messageId} {
+      // Only room members can read messages
+      allow read: if request.auth != null && isRoomMember(resource.data.roomId);
+
+      // Authenticated users can create messages (membership checked in app)
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own messages, admins can update any
+      allow update: if request.auth != null &&
+                      (request.resource.data.userId == request.auth.uid ||
+                       isRoomMember(resource.data.roomId));
+
+      // Users can delete their own messages, admins can delete any
+      allow delete: if request.auth != null &&
+                      (resource.data.userId == request.auth.uid ||
+                       isRoomMember(resource.data.roomId));
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
